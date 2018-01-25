@@ -1,4 +1,5 @@
- <Style x:Key="trackChangeControlStyle"
+
+<Style x:Key="trackChangeControlStyle"
          TargetType="controls:ChangeTrackerControl">
     <Setter Property="Template">
       <Setter.Value>
@@ -79,3 +80,1779 @@
       </Setter.Value>
     </Setter>
   </Style>
+  
+  
+   public static class AutoCompleteBehavior
+
+  {
+
+    private static bool isSubscribed;
+
+
+    public static readonly DependencyProperty AutoCompleteItemsSource = DependencyProperty.RegisterAttached("AutoCompleteItemsSource", typeof(IEnumerable<string>), typeof(AutoCompleteBehavior), new UIPropertyMetadata(null, OnAutoCompleteItemsSourceCallback));
+
+
+    public static readonly DependencyProperty AutoCompleteStringComparison = DependencyProperty.RegisterAttached("AutoCompleteStringComparison", typeof(StringComparison), typeof(AutoCompleteBehavior), new UIPropertyMetadata(StringComparison.Ordinal));
+
+
+    public static IEnumerable<string> GetAutoCompleteItemsSource(DependencyObject obj)
+
+    {
+
+      var ret = obj.GetValue(AutoCompleteItemsSource) as IEnumerable<string>;
+
+      return ret;
+
+    }
+
+
+    public static StringComparison GetAutoCompleteStringComparison(DependencyObject obj)
+
+    {
+
+      return (StringComparison) obj.GetValue(AutoCompleteStringComparison);
+
+    }
+
+
+    public static void SetAutoCompleteItemsSource(DependencyObject obj, IEnumerable<string> value)
+
+    {
+
+      obj.SetValue(AutoCompleteItemsSource, value);
+
+    }
+
+
+    public static void SetAutoCompleteStringComparison(DependencyObject obj, StringComparison value)
+
+    {
+
+      obj.SetValue(AutoCompleteStringComparison, value);
+
+    }
+
+
+    private static void OnAutoCompleteItemsSourceCallback(DependencyObject sender, DependencyPropertyChangedEventArgs e)
+
+    {
+
+      var textBox = sender as TextBox;
+
+      if (textBox == null)
+
+        return;
+
+      //If we're being removed, remove the callbacks
+
+      if (e.NewValue == null && isSubscribed)
+
+      {
+
+        textBox.TextChanged -= OnTextChanged;
+
+        textBox.PreviewKeyDown -= OnPreviewKeyDown;
+
+        isSubscribed = false;
+
+      }
+
+      else if (!isSubscribed)
+
+      {
+
+        //New source.  Add the callbacks
+
+        textBox.TextChanged += OnTextChanged;
+
+        textBox.PreviewKeyDown += OnPreviewKeyDown;
+
+        isSubscribed = true;
+
+      }
+
+    }
+
+
+    /// <summary>
+
+    ///   Used for moving the caret to the end of the suggested auto-completion text.
+
+    /// </summary>
+
+    /// <param name="sender"></param>
+
+    /// <param name="e"></param>
+
+    [SuppressMessage("ReSharper", "InvertIf")]
+
+    private static void OnPreviewKeyDown(object sender, KeyEventArgs e)
+
+    {
+
+      if (e.Key != Key.Enter)
+
+        return;
+
+
+      var tb = e.OriginalSource as TextBox;
+
+      if (tb == null)
+
+        return;
+
+
+      //If we pressed enter and if the selected text goes all the way to the end, move our caret position to the end
+
+      if (tb.SelectionLength > 0 && tb.SelectionStart + tb.SelectionLength == tb.Text.Length)
+
+      {
+
+        tb.SelectionStart = tb.CaretIndex = tb.Text.Length;
+
+        tb.SelectionLength = 0;
+
+      }
+
+    }
+
+
+    /// <summary>
+
+    ///   Search for auto-completion suggestions.
+
+    /// </summary>
+
+    /// <param name="sender"></param>
+
+    /// <param name="e"></param>
+
+    private static void OnTextChanged(object sender, TextChangedEventArgs e)
+
+    {
+
+      bool anyRemoved = (from change in e.Changes
+
+                         where change.RemovedLength > 0
+
+                         select change).Any();
+
+      bool anyAdded = (from change in e.Changes
+
+                       where change.AddedLength > 0
+
+                       select change).Any();
+
+
+      if ((anyRemoved || anyAdded)==false) //nothing was added or removed
+
+        return;
+
+
+      var textBox = e.OriginalSource as TextBox;
+
+      if (textBox == null)
+
+        return;
+
+
+      //No reason to search if there's nothing there.
+
+      if (string.IsNullOrEmpty(textBox.Text))
+
+        return;
+
+
+      var values = GetAutoCompleteItemsSource(textBox);
+
+      //No reason to search if we don't have any values.
+
+      if (values == null)
+
+        return;
+
+
+      int textLength = textBox.Text.Length;
+
+      string textToSearch = textBox.Text;
+
+
+      var comparer = GetAutoCompleteStringComparison(textBox);
+
+      //Do search and changes here.
+
+      string match = (
+
+                       from value in
+
+                       (
+
+                         from subvalue in values
+
+                         where subvalue != null && subvalue.Length >= textLength
+
+                         select subvalue
+
+                       )
+
+                       let search = textToSearch
+
+                       where value.Substring(0, textLength).Equals(search, comparer)
+
+                       select value
+
+                     ).FirstOrDefault();
+
+
+      //Nothing.  Leave 'em alone
+
+      if (string.IsNullOrEmpty(match))
+
+        return;
+
+
+      textBox.TextChanged -= OnTextChanged;
+
+      textBox.Text = match;
+
+      textBox.CaretIndex = textLength;
+
+      textBox.SelectionStart = textLength;
+
+      textBox.SelectionLength = match.Length - textLength;
+
+      textBox.TextChanged += OnTextChanged;
+
+    }
+
+  }
+  
+  public class XamDataGridRecordSelectorBehavior : Behavior<CheckBox>
+
+  {
+
+    public static readonly DependencyProperty IsFixedProperty = DependencyProperty.Register("IsFixed", typeof(bool), typeof(XamDataGridRecordSelectorBehavior), new PropertyMetadata(default(bool)));
+
+
+    public static readonly DependencyProperty IsSpaceKeyEnableProperty = DependencyProperty.Register("IsSpaceKeyEnable", typeof(bool), typeof(XamDataGridRecordSelectorBehavior), new PropertyMetadata(default(bool)));
+
+
+    public bool IsSpaceKeyEnable
+
+    {
+
+      get { return (bool)GetValue(IsSpaceKeyEnableProperty); }
+
+      set { SetValue(IsSpaceKeyEnableProperty, value); }
+
+    }
+
+
+    public bool IsFixed
+
+    {
+
+      get { return (bool)GetValue(IsFixedProperty); }
+
+      set { SetValue(IsFixedProperty, value); }
+
+    }
+
+
+    protected override void OnAttached()
+
+    {
+
+      base.OnAttached();
+
+
+      AssociatedObject.Checked += UpdateFixedRows;
+
+      AssociatedObject.Unchecked += UpdateFixedRows;
+
+      AssociatedObject.Loaded += UpdateFixedRows;
+
+    }
+
+
+    private void UpdateFixedRows(object sender, RoutedEventArgs e)
+
+    {
+
+      var checkBox = sender as CheckBox;
+
+      if (checkBox == null)
+
+        return;
+
+
+      var dataRecordPresenter = GetAncestor<DataRecordPresenter>(checkBox);
+
+      if (checkBox.IsChecked != null)
+
+        if (dataRecordPresenter != null)
+
+          if (dataRecordPresenter.Record != null)
+
+            if (IsFixed)
+
+              dataRecordPresenter.Record.IsFixed = checkBox.IsChecked.Value;
+
+    }
+
+
+    private static T GetAncestor<T>(DependencyObject source)
+
+     where T : class
+
+    {
+
+      if (source == null)
+
+        return null;
+
+
+      var ancestor = Infragistics.Windows.Utilities.GetAncestorFromType(source, typeof(T), true) as T;
+
+      return ancestor;
+
+    }
+
+  }
+  
+  
+  public class XamDataGridPinnedRecordBehavior : Behavior<XamDataPresenter>
+
+  {
+
+    public static readonly DependencyProperty ShouldPinRecordsProperty = DependencyProperty.Register("ShouldPinRecords", typeof (bool), typeof (XamDataGridPinnedRecordBehavior), new PropertyMetadata(default(bool),OnShouldPinPropertyChanged));
+
+
+    private static void OnShouldPinPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+
+    {
+
+      if (e.NewValue.Equals(e.OldValue))
+
+        return;
+
+      var bah = d as XamDataGridPinnedRecordBehavior;
+
+      if (bah == null)
+
+        return;
+
+      var ass = bah.AssociatedObject;
+
+      if (ass == null)
+
+        return;
+
+      var res = (bool)e.NewValue;
+
+      if (res)
+
+      {
+
+        PinRecords(ass.FieldLayoutSettings.FixedRecordLimit, ass);
+
+      }
+
+      else
+
+      {
+
+        PinRecords(0, ass);
+
+      }
+
+    }
+
+
+    private static bool isPinned;
+
+
+    public bool ShouldPinRecords
+
+    {
+
+      get { return (bool) GetValue(ShouldPinRecordsProperty); }
+
+      set { SetValue(ShouldPinRecordsProperty, value); }
+
+    }
+
+
+    protected override void OnAttached()
+
+    {
+
+      base.OnAttached();
+
+      AssociatedObject.Loaded += OnLoaded;
+
+      AssociatedObject.RecordsInViewChanged += AssociatedObjectOnRecordsInViewChanged;
+
+    }
+
+
+    private void AssociatedObjectOnRecordsInViewChanged(object sender, RecordsInViewChangedEventArgs recordsInViewChangedEventArgs)
+
+    {
+
+      var fixedRecordCount = AssociatedObject.FieldLayoutSettings.FixedRecordLimit;
+
+      var fixedRecords = AssociatedObject.Records.Where(x => x.IsFixed).ToList().Count;
+
+
+      if ((ShouldPinRecords && !isPinned) || (ShouldPinRecords && fixedRecords != fixedRecordCount))
+
+      {
+
+        PinRecords(AssociatedObject.FieldLayoutSettings.FixedRecordLimit, AssociatedObject);
+
+      }
+
+    }
+
+    
+
+    protected override void OnDetaching()
+
+    {
+
+      base.OnDetaching();
+
+      if (AssociatedObject != null)
+
+        AssociatedObject.Loaded -= OnLoaded;
+
+    }
+
+
+    private void OnLoaded(object sender, RoutedEventArgs routedEventArgs)
+
+    {
+
+      if (ShouldPinRecords)
+
+      {
+
+        PinRecords(AssociatedObject.FieldLayoutSettings.FixedRecordLimit, AssociatedObject);
+
+      }
+
+    }
+
+
+    private static void PinRecords(int? fixedRecordLimit, XamDataPresenter ao)
+
+    {
+
+      if (fixedRecordLimit == 0 && isPinned)
+
+      {
+
+        var records = ao.Records.Where(x=>x.IsFixed).ToList();
+
+        foreach (var record in records)
+
+          record.IsFixed = false;
+
+        isPinned = false;
+
+      }
+
+      else
+
+        for (int index = 0; index < fixedRecordLimit; index++)
+
+        {
+
+          if (ao.Records.Count > index)
+
+          {
+
+            isPinned = true;
+
+            ao.Records[index].IsFixed = true;
+
+          }
+
+        }
+
+    }
+
+  }
+  
+  public class XamComboMultiSelectBehavior : Behavior<XamComboEditor>
+
+  {
+
+    public static readonly DependencyProperty SelectedItemsProperty = DependencyProperty.Register("SelectedItems", 
+
+      typeof(IEnumerable<object>), 
+
+      typeof(XamComboMultiSelectBehavior),
+
+      new PropertyMetadata(new List<object>(), OnSelectedItemsChanged));
+
+
+    public IEnumerable<object> SelectedItems
+
+    {
+
+      get { return (IEnumerable<object>)GetValue(SelectedItemsProperty); }
+
+      set { SetValue(SelectedItemsProperty, value); }
+
+    }
+
+
+    protected override void OnAttached()
+
+    {
+
+      base.OnAttached();
+
+      AssociatedObject.SelectionChanged += OnSelectionChanged;
+
+
+      AssociatedObject.Loaded += OnLoaded;
+
+    }
+
+
+    protected override void OnDetaching()
+
+    {
+
+      base.OnDetaching();
+
+
+      AssociatedObject.SelectionChanged -= OnSelectionChanged;
+
+    }
+
+
+    private static void OnSelectedItemsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+
+    {
+
+      if (e.NewValue == null)
+
+        return;
+
+
+      var xamComboMultiSelectBehavior = d as XamComboMultiSelectBehavior;
+
+      if (xamComboMultiSelectBehavior == null)
+
+        return;
+
+
+      var xamComboSource = xamComboMultiSelectBehavior.AssociatedObject;
+
+      if (xamComboSource == null)
+
+        return;
+
+
+      var cellValuePresenter = Utilities.GetAncestorFromType(xamComboSource, typeof(CellValuePresenter), false) as CellValuePresenter;
+
+      if (cellValuePresenter == null)
+
+        return;
+
+
+      var selectableItem = cellValuePresenter.Record.DataItem as IMultiSelectable;
+
+
+      if (selectableItem == null || selectableItem.SelectedItems == null || selectableItem.SelectedItems.Count <= 0)
+
+        return;
+
+
+      xamComboSource.SelectedItems = selectableItem.SelectedItems;
+
+    }
+
+
+    private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+
+    {
+
+      var comboEditor = sender as XamComboEditor;
+
+      if (comboEditor == null)
+
+        return;
+
+
+      var cellValuePresenter = Utilities.GetAncestorFromType(comboEditor, typeof(CellValuePresenter), false) as CellValuePresenter;
+
+      if (cellValuePresenter == null)
+
+        return;
+
+
+      var selectableItem = cellValuePresenter.Record.DataItem as IMultiSelectable;
+
+      var selectedItems = comboEditor.SelectedItems;
+
+
+      if (selectableItem == null || selectedItems == null || selectedItems.Count <= 0)
+
+        return;
+
+
+      selectableItem.SelectedItem = comboEditor.SelectedItem;
+
+      selectableItem.SelectItems(selectedItems);
+
+    }
+
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+
+    {
+
+      ApplySelectedItems();
+
+    }
+
+
+    private void ApplySelectedItems()
+
+    {
+
+      if (AssociatedObject == null || SelectedItems == null) 
+
+        return;
+
+
+      foreach (var item in AssociatedObject.Items.Where(item => SelectedItems.Contains(item.Data)))
+
+      {
+
+        item.IsSelected = true;
+
+      }
+
+    }
+
+  }
+  
+  public class WorkspaceViewModelBehavior : Behavior<UserControl>
+
+  {
+
+    public static readonly DependencyProperty ClosingWindowCommandProperty = DependencyProperty.Register("ClosingWindowCommand", typeof(ICommand), typeof(WorkspaceViewModelBehavior), new UIPropertyMetadata(null));
+
+
+    public static readonly DependencyProperty ClosedWindowCommandProperty = DependencyProperty.Register("ClosedWindowCommand", typeof(ICommand), typeof(WorkspaceViewModelBehavior), new UIPropertyMetadata(null));
+
+
+    public ICommand ClosingWindowCommand
+
+    {
+
+      get { return (ICommand)GetValue(ClosingWindowCommandProperty); }
+
+      set { SetValue(ClosingWindowCommandProperty, value); }
+
+    }
+
+
+    public ICommand ClosedWindowCommand
+
+    {
+
+      get { return (ICommand)GetValue(ClosedWindowCommandProperty); }
+
+      set { SetValue(ClosedWindowCommandProperty, value); }
+
+    }
+
+
+    private Window parentWindow;
+
+    private IWorkspaceViewModel workspaceViewModel;
+
+    private bool isLoaded;
+
+
+    protected override void OnAttached()
+
+    {
+
+      AssociatedObject.Loaded += AssociatedObject_Loaded;
+
+    }
+
+
+    private void AssociatedObject_Loaded(object sender, RoutedEventArgs e)
+
+    {
+
+      if (isLoaded)
+
+        return;
+
+
+      var viewModel = AssociatedObject?.DataContext as IWorkspaceViewModel;
+
+      if (viewModel == null)
+
+        throw new InvalidOperationException("Window.DataContext must derived from IWorkspaceViewModel.");
+
+
+      parentWindow = Window.GetWindow(AssociatedObject);
+
+
+      if (parentWindow == null)
+
+        return;
+
+
+      isLoaded = true;
+
+
+      SubscribeToWindowEvents();
+
+      SubscribeToViewModelEvents(viewModel);
+
+    }
+
+
+    private void SubscribeToWindowEvents()
+
+    {
+
+      parentWindow.Closing += OnWindowClosing;
+
+      parentWindow.Closed += OnWindowClosed;
+
+      parentWindow.Loaded += OnWindowLoaded;
+
+      parentWindow.Unloaded += OnWindowUnloaded;
+
+      parentWindow.DataContextChanged += OnWindowDataContextChanged;
+
+    }
+
+
+    private void SubscribeToViewModelEvents(IWorkspaceViewModel viewModel)
+
+    {
+
+      if (workspaceViewModel != null)
+
+      {
+
+        workspaceViewModel.RequestClose += OnRequestClose;
+
+        workspaceViewModel.RequestActivate += OnRequestActivate;
+
+      }
+
+
+      workspaceViewModel = viewModel;
+
+      workspaceViewModel.RequestClose += OnRequestClose;
+
+      workspaceViewModel.RequestActivate += OnRequestActivate;
+
+    }
+
+
+    private void OnWindowDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+
+    {
+
+      if (e.NewValue != null)
+
+      {
+
+        if (!(e.NewValue is IWorkspaceViewModel))
+
+          throw new InvalidOperationException("Window.DataContext must derived from IWorkspaceViewModel.");
+
+
+        SubscribeToViewModelEvents((IWorkspaceViewModel)e.NewValue);
+
+      }
+
+    }
+
+
+    private void OnWindowLoaded(object sender, RoutedEventArgs e)
+
+    {
+
+      OnRequestActivate();
+
+    }
+
+
+    private void OnWindowUnloaded(object sender, RoutedEventArgs e)
+
+    {
+
+      if (parentWindow != null)
+
+      {
+
+        parentWindow.Closing -= OnWindowClosing;
+
+        parentWindow.Closed -= OnWindowClosed;
+
+        parentWindow.Loaded -= OnWindowLoaded;
+
+        parentWindow.Unloaded -= OnWindowUnloaded;
+
+
+        if (parentWindow.DataContext != null)
+
+        {
+
+          ((IWorkspaceViewModel)parentWindow.DataContext).RequestClose -= OnRequestClose; 
+
+        }
+
+      }
+
+    }
+
+
+    private void OnRequestClose()
+
+    {
+
+      parentWindow.Close();
+
+    }
+
+
+    private void OnRequestActivate()
+
+    {
+
+      if (parentWindow.WindowState == WindowState.Minimized)
+
+      {
+
+        parentWindow.WindowState = WindowState.Normal;
+
+      }
+
+
+      bool topmost = parentWindow.Topmost;
+
+
+      parentWindow.Topmost = true;
+
+      parentWindow.Topmost = topmost;
+
+
+      if (parentWindow.Activate())
+
+      {
+
+        parentWindow.Focus();
+
+      }
+
+    }
+
+
+    private void OnWindowClosed(object sender, EventArgs e)
+
+    {
+
+      ClosedWindowCommand?.Execute(null);
+
+    }
+
+
+    private void OnWindowClosing(object sender, CancelEventArgs e)
+
+    {
+
+      if (ClosingWindowCommand != null)
+
+      {
+
+        if (parentWindow.DialogResult == true || ClosingWindowCommand.CanExecute(null))
+
+        {
+
+          ClosingWindowCommand.Execute(null);
+
+        }
+
+        else
+
+        {
+
+          e.Cancel = true;
+
+        }
+
+      }
+
+    }
+
+ 
+
+  }
+  
+  public class PricerExportButtonBehavior : Behavior<Button>
+
+  {
+
+    private bool isExportRunning;
+
+
+    public static readonly DependencyProperty TargetElementProperty = DependencyProperty.Register(
+
+      "TargetElement", typeof(FrameworkElement), typeof(PricerExportButtonBehavior), new PropertyMetadata(default(FrameworkElement)));
+
+
+    public static readonly DependencyProperty WorkSheetNameProperty = DependencyProperty.Register(
+
+      "WorkSheetName", typeof(string), typeof(PricerExportButtonBehavior), new PropertyMetadata(default(string)));
+
+
+    public static readonly DependencyProperty GridToExportProperty = DependencyProperty.Register(
+
+      "GridToExport", typeof(FrameworkElement), typeof(PricerExportButtonBehavior), new PropertyMetadata(default(FrameworkElement)));
+
+
+    public static readonly DependencyProperty TaskWorkflowProperty = DependencyProperty.Register(
+
+    "TaskWorkflow", typeof(IPricingWorkflow), typeof(PricerExportButtonBehavior), new PropertyMetadata(default(IPricingWorkflow)));
+
+
+    public string WorkSheetName
+
+    {
+
+      get { return (string)GetValue(WorkSheetNameProperty); }
+
+      set { SetValue(WorkSheetNameProperty, value); }
+
+    }
+
+
+    public FrameworkElement TargetElement
+
+    {
+
+      get { return (FrameworkElement)GetValue(TargetElementProperty); }
+
+      set { SetValue(TargetElementProperty, value); }
+
+    }
+
+
+    public FrameworkElement GridToExport
+
+    {
+
+      get { return (FrameworkElement)GetValue(GridToExportProperty); }
+
+      set { SetValue(GridToExportProperty, value); }
+
+    }
+
+
+    public IPricingWorkflow TaskWorkflow
+
+    {
+
+      get { return (IPricingWorkflow)GetValue(TaskWorkflowProperty); }
+
+      set { SetValue(TaskWorkflowProperty, value); }
+
+    }
+
+
+    protected override void OnAttached()
+
+    {
+
+      base.OnAttached();
+
+
+      AssociatedObject.Click += OnClick;
+
+    }
+
+
+    private void OnClick(object sender, RoutedEventArgs e)
+
+    {
+
+      try
+
+      {
+
+        if (isExportRunning)
+
+          return;
+
+        isExportRunning = true;
+
+        if (TargetElement == null && GridToExport == null)
+
+          return;
+
+
+        IList<DataPresenterBase> gridCol = new List<DataPresenterBase>();
+
+
+        bool gridHeaderIsHidden = false;
+
+        if (GridToExport == null)
+
+        {
+
+          GetElementsByType(TargetElement, gridCol);
+
+          if (gridCol.Count == 0)
+
+            return;
+
+        }
+
+        else
+
+        {
+
+          var dataPresenterBase = GridToExport as DataPresenterBase;
+
+          if (dataPresenterBase != null) // && dataPresenterBase.DataItems.Count > 0)
+
+          {
+
+            gridHeaderIsHidden = dataPresenterBase.FieldLayoutSettings.LabelLocation == LabelLocation.Hidden;
+
+
+            gridCol.Add(dataPresenterBase);
+
+          }
+
+          else
+
+            return;
+
+        }
+
+
+　
+
+        EnableDisableButton(false);
+
+
+        DataPresenterExcelExporter exporter = new DataPresenterExcelExporter();
+
+        var workbook = new Workbook(WorkbookFormat.Excel2007);
+
+        exporter.CellExporting += Exporter_CellExporting;
+
+        exporter.ExportEnded += (EventHandler<ExportEndedEventArgs>)((originator, args) => OnExportEnded(workbook));
+
+        ExportOptions options = new ExportOptions()
+
+        {
+
+          ChildRecordCollectionSpacing = ChildRecordCollectionSpacing.None,
+
+          ExcludeGroupBySettings = true
+
+        };
+
+
+        Worksheet worksheet = workbook.Worksheets.Add("Sheet1");
+
+
+        int dataRow = 0;
+
+        int dataCol = 0;
+
+        int freezeRows = 1;
+
+
+        IPricingWorkflow pricingWorkflow = TaskWorkflow; // fetch workflow from xaml
+
+        if (pricingWorkflow != null)
+
+        {
+
+          dataRow = PricerExportHelper.AddPricerInfoPreamble(worksheet, dataRow, pricingWorkflow);
+
+          dataRow++;
+
+
+          freezeRows = gridHeaderIsHidden ? dataRow : dataRow + 1;
+
+        }
+
+
+        var worksheetName = WorkSheetName;
+
+        FixWorkSheetName(worksheet, worksheetName, pricingWorkflow);
+
+
+        FormatSettings labelFormatSettings = new FormatSettings
+
+        {
+
+          FillPattern = FillPatternStyle.Solid,
+
+          FillPatternForegroundColor = Colors.Gainsboro,
+
+          FillPatternBackgroundColor = Colors.Gainsboro,
+
+          FontColor = Colors.Black,
+
+          FontWeight = FontWeights.Bold
+
+        };
+
+
+        DataPresenterExcelExporter.SetExcelLabelFormatSettings(gridCol[0].FieldSettings, labelFormatSettings);
+
+        exporter.ExportAsync(gridCol[0], worksheet, dataRow, dataCol, options);
+
+
+        worksheet.SetColumnFormatting(freezeRows);
+
+      }
+
+      catch (Exception ex)
+
+      {
+
+        EnableDisableButton(true);
+
+        throw new Exception("Error encountered during export", ex);
+
+      }
+
+      finally
+
+      {
+
+        isExportRunning = false;
+
+      }
+
+    }
+
+
+    private void Exporter_CellExporting(object sender, CellExportingEventArgs e)
+
+    {
+
+      var integerFormat = @"#,###,###,###,##0;(#,###,###,###,##0)";
+
+      var decimalFormat = @"#,##0.00;[red](#,##0.00)";
+
+
+      if (e.Value != null)
+
+      {
+
+        double outDoubleValue;
+
+        if (double.TryParse(e.Value.ToString(), out outDoubleValue))
+
+        {
+
+          e.CurrentWorksheet.Rows[e.CurrentRowIndex].Cells[e.CurrentColumnIndex].Value = outDoubleValue;
+
+          e.CurrentWorksheet.Rows[e.CurrentRowIndex].Cells[e.CurrentColumnIndex].CellFormat.FormatString = decimalFormat;
+
+          if (outDoubleValue < 0)
+
+            e.FormatSettings.FontColor = Colors.Red;
+
+        }
+
+
+        int outIntValue;
+
+        if (int.TryParse(e.Value.ToString(), out outIntValue))
+
+        {
+
+          e.CurrentWorksheet.Rows[e.CurrentRowIndex].Cells[e.CurrentColumnIndex].Value = outIntValue;
+
+          e.CurrentWorksheet.Rows[e.CurrentRowIndex].Cells[e.CurrentColumnIndex].CellFormat.FormatString = integerFormat;
+
+          //if (outIntValue < 0)
+
+          //  e.FormatSettings.FontColor = Colors.Red;
+
+        }
+
+      }
+
+    }
+
+
+    private void SaveExport(Workbook dataWorkbook)
+
+    {
+
+      string fileName = ExportedFilePath();
+
+
+      Stream exportStream = File.Open(fileName, FileMode.OpenOrCreate);
+
+      dataWorkbook.Save(exportStream);
+
+      exportStream.Close();
+
+
+      var excelProcess = new Process { StartInfo = { FileName = fileName } };
+
+      excelProcess.Start();
+
+    }
+
+
+    private void FixWorkSheetName(Worksheet worksheet, string sheetName, IPricingWorkflow pricingWorkflow)
+
+    {
+
+      int maxSheetNameLenght = 30;
+
+      string newSheetName = sheetName;
+
+
+      if (string.IsNullOrEmpty(sheetName))
+
+      {
+
+        if (pricingWorkflow != null)
+
+          newSheetName = pricingWorkflow.AssetClass.Contains(PricingCallConstants.EqCalculation) ? pricingWorkflow.Type : pricingWorkflow.Description;
+
+        else
+
+          newSheetName = "Sheet1";
+
+      }
+
+
+      if (newSheetName.Length > maxSheetNameLenght)
+
+      {
+
+        newSheetName = newSheetName.Substring(0, maxSheetNameLenght);
+
+      }
+
+
+      worksheet.Name = newSheetName;
+
+    }
+
+
+    private string ExportedFilePath()
+
+    {
+
+      try
+
+      {
+
+        return Path.GetTempFileName() + ".xlsx";
+
+      }
+
+      catch (Exception ex)
+
+      {
+
+        throw new Exception("Could not create excel file for export", ex);
+
+      }
+
+    }
+
+
+    public static void GetElementsByType<T>(FrameworkElement parent, IList<T> col) where T : FrameworkElement
+
+    {
+
+      if (parent == null)
+
+        return;
+
+
+      foreach (var child in LogicalTreeHelper.GetChildren(parent))
+
+      {
+
+        FrameworkElement childType = child as FrameworkElement;
+
+        if (childType == null)
+
+          continue;
+
+
+        var childEle = child as T;
+
+        if (childEle != null)
+
+          col.Add(childEle);
+
+
+        GetElementsByType(childType, col);
+
+      }
+
+    }
+
+
+    private void OnExportEnded(Workbook workbook)
+
+    {
+
+      try
+
+      {
+
+        SaveExport(workbook);
+
+      }
+
+      finally
+
+      {
+
+        isExportRunning = false;
+
+        EnableDisableButton(true);
+
+      }
+
+    }
+
+
+    private void EnableDisableButton(bool isEnable)
+
+    {
+
+      AssociatedObject.IsEnabled = isEnable;
+
+    }
+
+  }
+  
+  public static void LoadWorkbook(this Workbook dataWorkbook)
+
+    {
+
+      string fileName = Path.GetTempFileName() + ".xlsx";
+
+      try
+
+      {
+
+        Stream exportStream = File.Open(fileName, FileMode.OpenOrCreate);
+
+        dataWorkbook.Save(exportStream);
+
+        exportStream.Close();
+
+
+        var excelProcess = new Process { StartInfo = { FileName = fileName } };
+
+        excelProcess.Start();
+
+      }
+
+      catch (Exception ex)
+
+      {
+
+        RemoteServerService.RemoteServer<IWorkspaceService>().ShowException(ex);
+
+      }
+
+    }
+    
+    [TemplatePart(Name = "PART_Button", Type = typeof(ButtonBase))]
+
+  public class CustomSelector : ContentControl
+
+  {
+
+    #region Dependency Properties
+
+
+    public static readonly DependencyProperty DropDownControlProperty =
+
+      DependencyProperty.RegisterAttached("DropDownControl", typeof(UIElement), typeof(CustomSelector),
+
+                                          new UIPropertyMetadata(null, OnDropDownControlChange));
+
+
+    private static void OnDropDownControlChange(DependencyObject d, DependencyPropertyChangedEventArgs e)
+
+    {
+
+      if (DesignerProperties.GetIsInDesignMode(d)) return;
+
+    }
+
+    public static readonly DependencyProperty ImageProperty = DependencyProperty.Register("Image", typeof(ImageSource), typeof(CustomSelector));
+
+
+    public static readonly DependencyProperty TextProperty = DependencyProperty.Register("Text", typeof(string), typeof(CustomSelector));
+
+
+    public static readonly DependencyProperty TargetProperty = DependencyProperty.Register("Target", typeof(UIElement), typeof(CustomSelector));
+
+
+    public static readonly DependencyProperty MainButtonCommandProperty = DependencyProperty.Register("MainButtonCommand", typeof(ICommand), typeof(CustomSelector), new FrameworkPropertyMetadata(null, OnMainCommandChanged));
+
+
+    public static readonly DependencyProperty MainButtonCommandParameterProperty = DependencyProperty.Register("MainButtonCommandParameter", typeof(object), typeof(CustomSelector));
+
+
+    public static readonly DependencyProperty DropDownButtonCommandProperty = DependencyProperty.Register("DropDownButtonCommand", typeof(ICommand), typeof(CustomSelector), new FrameworkPropertyMetadata(null));
+
+
+    public static readonly DependencyProperty IsEnabledProperty = DependencyProperty.Register(
+
+      "IsEnabled", typeof (bool), typeof (CustomSelector), new PropertyMetadata(default(bool)));
+
+
+    public static readonly DependencyProperty IsDropDownCollapseProperty = DependencyProperty.Register(
+
+      "IsDropDownCollapse", typeof (bool), typeof (CustomSelector), new FrameworkPropertyMetadata(OnDropDownCollapseChange));
+
+
+    private static void OnDropDownCollapseChange(DependencyObject d, DependencyPropertyChangedEventArgs e)
+
+    {
+
+      var selector = d as CustomSelector;
+
+      if (selector == null)
+
+        return;
+
+
+      if (!(e.NewValue is bool))
+
+        return;
+
+      
+
+      var isCollapse = (bool)e.NewValue;
+
+      if (isCollapse && selector.popup != null)
+
+        selector.popup.IsOpen = false;
+
+    }
+
+
+    private Popup popup;
+
+
+    private static void OnMainCommandChanged(DependencyObject d, DependencyPropertyChangedEventArgs basevalue)
+
+    {
+
+      return;
+
+    }
+
+
+    #endregion
+
+
+    #region Constructors
+
+    
+
+    public CustomSelector()
+
+    { }
+
+
+    #endregion
+
+
+    #region Properties
+
+
+    public bool IsDropDownCollapse
+
+    {
+
+      get { return (bool)GetValue(IsDropDownCollapseProperty); }
+
+      set { SetValue(IsDropDownCollapseProperty, value); }
+
+    }
+
+
+    public bool IsEnabled
+
+    {
+
+      get { return (bool)GetValue(IsEnabledProperty); }
+
+      set { SetValue(IsEnabledProperty, value); }
+
+    }
+
+
+    [Category("Appearance")]
+
+    [Bindable(BindableSupport.Yes)]
+
+    public UIElement DropDownControl
+
+    {
+
+      get { return GetValue(DropDownControlProperty) as UIElement; }
+
+      set { SetValue(DropDownControlProperty, value); }
+
+    }
+
+
+    [Bindable(true)]
+
+    [Category("Appearance")]
+
+    public ImageSource Image
+
+    {
+
+      get { return GetValue(ImageProperty) as ImageSource; }
+
+      set { SetValue(ImageProperty, value); }
+
+    }
+
+
+    [Bindable(true)]
+
+    [Category("Appearance")]
+
+    public string Text
+
+    {
+
+      get { return GetValue(TextProperty) as string; }
+
+      set { SetValue(TextProperty, value); }
+
+    }
+
+
+    [Bindable(true)]
+
+    public UIElement Target
+
+    {
+
+      get { return GetValue(TargetProperty) as UIElement; }
+
+      set { SetValue(TargetProperty, value); }
+
+    }
+
+
+    public ICommand MainButtonCommand
+
+    {
+
+      get { return GetValue(MainButtonCommandProperty) as ICommand; }
+
+      set { SetValue(MainButtonCommandProperty, value); }
+
+    }
+
+
+    public object MainButtonCommandParameter
+
+    {
+
+      get { return GetValue(MainButtonCommandParameterProperty); }
+
+      set { SetValue(MainButtonCommandParameterProperty, value); }
+
+    }
+
+
+    [Bindable(true)]
+
+    [Category("Commands")]
+
+    public ICommand DropDownButtonCommand
+
+    {
+
+      get { return GetValue(DropDownButtonCommandProperty) as ICommand; }
+
+      set { SetValue(DropDownButtonCommandProperty, value); }
+
+    }
+
+
+    #endregion
+
+
+    #region Public Override Methods
+
+
+    public override void OnApplyTemplate()
+
+    {
+
+      base.OnApplyTemplate();
+
+      SetMainButtonCommand();
+
+    }
+
+
+    public static Control GetDropDownControl(DependencyObject obj)
+
+    {
+
+      return (Control)obj.GetValue(DropDownControlProperty);
+
+    }
+
+
+    public static void SetDropDownControl(DependencyObject obj, Control value)
+
+    {
+
+      obj.SetValue(DropDownControlProperty, value);
+
+    }
+
+
+    #endregion
+
+
+    #region Protected Override Methods
+
+
+    protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+
+    {
+
+      base.OnPropertyChanged(e);
+
+
+      if (e.Property == MainButtonCommandProperty)
+
+        SetMainButtonCommand();
+
+    }
+
+
+    protected void OnClick()
+
+    {
+
+      if (DropDownControl == null) return;
+
+
+      if (DataContext != null)
+
+      {
+
+        var dataItem = DataContext as ILoadOnDemand;
+
+        dataItem?.LoadData();
+
+      }
+
+
+      if (DropDownButtonCommand != null)
+
+        DropDownButtonCommand.Execute(null);
+
+
+      popup = (Popup)DropDownControl;
+
+      popup.DataContext = DataContext;
+
+      popup.PlacementTarget = this;
+
+      popup.IsOpen = !popup.IsOpen;
+
+    }
+
+
+    #endregion
+
+
+    #region Private Methods
+
+
+    private void SetMainButtonCommand()
+
+    {
+
+      if (Template != null)
+
+      {
+
+        var button = Template.FindName("PART_Button", this) as ButtonBase;
+
+        if (button == null)
+
+        {
+
+          ApplyTemplate();
+
+          button = GetTemplateChild("PART_Button") as ButtonBase;
+
+        }
+
+        if (button != null)
+
+        {
+
+          button.Command = MainButtonCommand;
+
+          button.Click += OnButtonClick;
+
+          button.CommandParameter = MainButtonCommandParameter;
+
+        }
+
+      }
+
+    }
+
+
+    private void OnButtonClick(object sender, RoutedEventArgs e)
+
+    {
+
+      OnClick();
+
+    }
+
+
+    #endregion
+
+  }
