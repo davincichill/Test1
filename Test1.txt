@@ -1,0 +1,81 @@
+ <Style x:Key="trackChangeControlStyle"
+         TargetType="controls:ChangeTrackerControl">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="controls:ChangeTrackerControl">
+          <Grid IsEnabled="{Binding IsEnabled}">
+            <guc:AdornedControl x:Name="headerControl"
+                                IsAdornerVisible="True">
+              <guc:AdornedControl.AdornerContent>
+                <Canvas RenderTransformOrigin="0.5,0.5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Width="10"
+                        Height="10">
+                  <Button x:Name="overriddenButton"
+                          Canvas.Left="0"
+                          Canvas.Top="0"
+                          Cursor="Hand"
+                          Focusable="False"
+                          Margin="0"
+                          Padding="0"
+                          Width="8"
+                          Height="8"
+                          Command="{Binding OpenCommand}"
+                          ToolTip="Value has been overridden, click to view"
+                          Background="Transparent"
+                          SnapsToDevicePixels="True"
+                          HorizontalAlignment="Left"
+                          VerticalAlignment="Center">
+                    <Button.Template>
+                      <ControlTemplate TargetType="Button">
+                        <Grid Background="Transparent"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch">
+                          <Rectangle x:Name="Rectangle"
+                                     Stretch="Fill">
+                            <Rectangle.Fill>
+                              <LinearGradientBrush StartPoint="1,1"
+                                                   EndPoint="0,0">
+                                <GradientStop Color="White"
+                                              Offset=".3" />
+                                <GradientStop Color="Red"
+                                              Offset=".9" />
+                              </LinearGradientBrush>
+                            </Rectangle.Fill>
+                          </Rectangle>
+                        </Grid>
+                      </ControlTemplate>
+                    </Button.Template>
+                    <Button.Style>
+                      <Style TargetType="Button">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsOverridden}"
+                                       Value="true">
+                            <Setter Property="Visibility"
+                                    Value="Visible" />
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding IsOverridden}"
+                                       Value="false">
+                            <Setter Property="Visibility"
+                                    Value="Collapsed" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                  </Button>
+                </Canvas>
+              </guc:AdornedControl.AdornerContent>
+              <CheckBox Margin="10,0,0,0"
+                        IsChecked="{Binding ActualValue}" >
+                <CheckBox.ToolTip>
+                  <ToolTip Content="{Binding ToolTip}"
+                           Visibility="{Binding IsOverridden, Converter={StaticResource boolToVisibilityConverter}}" />
+                </CheckBox.ToolTip>
+              </CheckBox>
+            </guc:AdornedControl>
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
